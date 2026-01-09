@@ -1,0 +1,739 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport"
+        content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+    <title>Chess iOS</title>
+    <link rel="manifest" href="manifest.json">
+    <style>
+        :root {
+            --glass-bg: rgba(255, 255, 255, 0.65);
+            --glass-border: rgba(255, 255, 255, 0.2);
+            --accent-color: #007aff;
+            --board-light: #f0d9b5;
+            --board-dark: #b58863;
+            --board-highlight: rgba(255, 255, 0, 0.5);
+            --board-move-hint: rgba(0, 0, 0, 0.1);
+            --text-primary: #000000;
+            --text-secondary: #8e8e93;
+            --bg-gradient: linear-gradient(135deg, #f5f7fa 0%, #c3cfe2 100%);
+        }
+
+        @media (prefers-color-scheme: dark) {
+            :root {
+                --glass-bg: rgba(30, 30, 30, 0.65);
+                --glass-border: rgba(255, 255, 255, 0.1);
+                --text-primary: #ffffff;
+                --text-secondary: #aeaeb2;
+                --bg-gradient: linear-gradient(135deg, #1c1c1e 0%, #2c2c2e 100%);
+                --board-light: #eeeed2;
+                --board-dark: #769656;
+            }
+        }
+
+        * {
+            box-sizing: border-box;
+            -webkit-tap-highlight-color: transparent;
+            font-family: -apple-system, BlinkMacSystemFont, "SF Pro Text", "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+        }
+
+        body {
+            margin: 0;
+            height: 100vh;
+            width: 100vw;
+            background: var(--bg-gradient);
+            color: var(--text-primary);
+            overflow: hidden;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+        }
+
+        .app-container {
+            width: 100%;
+            height: 100%;
+            max-width: 600px;
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            gap: 10px;
+            padding: calc(env(safe-area-inset-top) + 10px) 10px calc(env(safe-area-inset-bottom) + 10px) 10px;
+        }
+
+        .glass-panel {
+            background: var(--glass-bg);
+            backdrop-filter: blur(20px);
+            -webkit-backdrop-filter: blur(20px);
+            border: 1px solid var(--glass-border);
+            border-radius: 15px;
+            padding: 10px;
+            box-shadow: 0 8px 32px 0 rgba(31, 38, 135, 0.15);
+        }
+
+        header {
+            margin-top: 0;
+            text-align: center;
+            font-weight: 600;
+            font-size: 1rem;
+            padding: 8px;
+        }
+
+        .board-container {
+            flex: 1;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            width: 100%;
+            overflow: hidden;
+        }
+
+        .chessboard {
+            display: grid;
+            grid-template-columns: repeat(8, 1fr);
+            grid-template-rows: repeat(8, 1fr);
+            width: 100vmin;
+            height: 100vmin;
+            max-width: 100%;
+            max-height: 100%;
+            aspect-ratio: 1 / 1;
+            border-radius: 4px;
+            overflow: hidden;
+            box-shadow: 0 5px 20px rgba(0, 0, 0, 0.3);
+            /* background: removed to prevent masking */
+            touch-action: none;
+            margin: auto;
+        }
+
+        .piece {
+            width: 90%;
+            height: 90%;
+            cursor: grab;
+            z-index: 2;
+            transition: transform 0.1s;
+            user-select: none;
+            /* Flex layout to center SVG */
+            display: flex;
+            justify-content: center;
+            align-items: center;
+        }
+
+        .piece svg {
+            width: 100%;
+            height: 100%;
+            display: block;
+            pointer-events: none;
+            /* Let clicks pass to parent if needed */
+        }
+
+        .piece:active {
+            cursor: grabbing;
+            transform: scale(1.1);
+        }
+
+        .square {
+            width: 100%;
+            height: 100%;
+            position: relative;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            touch-action: none;
+        }
+
+        .square.light {
+            background-color: #eeeed2;
+            /* Classic Cream */
+        }
+
+        .square.dark {
+            background-color: #769656;
+            /* Classic Green */
+        }
+
+        /* ... skipped intermediate unchanged styles ... */
+        .controls {
+            display: flex;
+            flex-direction: column;
+            gap: 10px;
+            margin-bottom: 0;
+            padding: 12px;
+        }
+
+        .difficulty-selector {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            font-size: 0.9rem;
+        }
+
+        #difficulty {
+            padding: 8px 12px;
+            border-radius: 10px;
+            border: none;
+            background: rgba(0, 0, 0, 0.05);
+            font-size: 0.9rem;
+            color: var(--text-primary);
+        }
+
+        .actions {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 15px;
+        }
+
+        .ios-btn {
+            padding: 12px;
+            border: none;
+            border-radius: 12px;
+            font-weight: 600;
+            font-size: 1rem;
+            cursor: pointer;
+            transition: background 0.2s;
+        }
+
+        .title {
+            font-size: 1.5rem;
+            font-weight: 700;
+        }
+
+        .ios-btn.primary {
+            background-color: var(--accent-color);
+            color: white;
+        }
+
+        .ios-btn.secondary {
+            background-color: rgba(0, 0, 0, 0.05);
+            color: var(--text-primary);
+        }
+
+        .ios-btn:active {
+            opacity: 0.8;
+            transform: scale(0.98);
+        }
+
+        .engine-info {
+            font-size: 0.7rem;
+            color: var(--text-secondary);
+            text-align: center;
+        }
+
+        @media (min-width: 768px) {
+            .app-container {
+                flex-direction: row;
+                gap: 30px;
+                max-width: 900px;
+            }
+
+            .board-container {
+                flex: 2;
+            }
+
+            .controls {
+                flex: 1;
+                justify-content: center;
+            }
+        }
+    </style>
+</head>
+
+<body>
+    <div class="app-container">
+        <header class="glass-panel">
+            <div class="status-bar"><span id="game-status">White to Move</span></div>
+        </header>
+        <main class="board-container">
+            <div id="chessboard" class="chessboard"></div>
+        </main>
+        <section class="controls glass-panel">
+            <div class="difficulty-selector">
+                <label for="difficulty">Difficulty:</label>
+                <select id="difficulty">
+                    <option value="1">Level 1 (Easy)</option>
+                    <option value="5">Level 5 (Medium)</option>
+                    <option value="10">Level 10 (Hard)</option>
+                    <option value="22" selected>Level 20 (Grandmaster)</option>
+                </select>
+            </div>
+            <div class="actions">
+                <button id="btn-undo" class="ios-btn secondary">Undo</button>
+                <button id="btn-new-game" class="ios-btn primary">New Game</button>
+            </div>
+            <div id="engine-status" class="engine-info">Loading Engine...</div>
+        </section>
+    </div>
+
+    <!-- Libraries via CDN -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/chess.js/0.10.3/chess.min.js"></script>
+    <script>
+        // Override worker path to point to CDN if user hasn't uploaded it generally
+        // But stockfish.js tries to spawn worker from same path usually.
+        // We will try to load it as a script tag from CDN if worker fails, or use blob.
+
+        // Using a compatible version of stockfish.js
+        const STOCKFISH_CDN = "https://cdnjs.cloudflare.com/ajax/libs/stockfish.js/10.0.0/stockfish.js";
+    </script>
+
+    <!-- Pieces -->
+    <script>
+        const PIECES = {
+            wP: '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 45 45"><path d="M22 9c-2.21 0-4 1.79-4 4 0 .89.29 1.71.78 2.38C17.33 16.5 16 18.59 16 21c0 2.03.94 3.84 2.41 5.03-3 1.06-7.41 5.55-7.41 13.47h23c0-7.92-4.41-12.41-7.41-13.47 1.47-1.19 2.41-3 2.41-5.03 0-2.41-1.33-4.5-2.78-5.62.49-.67.78-1.49.78-2.38 0-2.21-1.79-4-4-4z" stroke="#000" stroke-width="1.5" fill="#fff"/></svg>',
+            wN: '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 45 45"><g fill="none" fill-rule="evenodd" stroke="#000" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M 22,10 C 32.5,11 38.5,18 38,39 L 15,39 C 15,30 25,32.5 23,18" style="fill:#ffffff; stroke:#000000;" /><path d="M 24,18 C 24.38,20.91 18.45,25.37 16,27 C 13,29 13.18,31.34 11,31 C 9.958,30.06 12.41,27.96 11,28 C 10,28 11.19,29.23 10,30 C 9,30 5.997,31 6,26 C 6,24 12,14 12,14 C 12,14 13.89,12.1 14,10.5 C 13.27,9.506 13.5,8.5 13.5,7.5 C 14.5,6.5 16.5,10 16.5,10 L 18.5,10 C 18.5,10 19.28,8.008 21,7 C 22,7 22,10 22,10" style="fill:#ffffff; stroke:#000000;" /><path d="M 9.5 25.5 A 0.5 0.5 0 1 1 8.5,25.5 A 0.5 0.5 0 1 1 9.5 25.5 z" style="fill:#000000; stroke:#000000;" /><path d="M 15 15.5 A 0.5 1.5 0 1 1 14,15.5 A 0.5 1.5 0 1 1 15 15.5 z" transform="matrix(0.866,0.5,-0.5,0.866,9.693,-5.173)" style="fill:#000000; stroke:#000000;" /></g></svg>',
+            wB: '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 45 45"><path d="M23 9c-3.5 0-6.5 3-6.5 7.5 0 2.5 1.5 4.5 3.5 6 1 4 2 8 2 11h-3c0-4-3-8-3-8l-1 1c1 2 2 4 2 7.5V36h16v-2c0-3.5 1-5.5 2-7.5l-1-1c0 0-3 4-3 8h-3c0-3 1-7 2-11 2-1.5 3.5-3.5 3.5-6C30.5 12 27.5 9 24 9h-1z" stroke="#000" stroke-width="1.5" fill="#fff"/><path d="M22.5 9c-.83 0-1.5-.67-1.5-1.5S21.67 6 22.5 6 24 6.67 24 7.5s-.67 1.5-1.5 1.5z" stroke="#000" stroke-width="1.5" fill="#fff"/></svg>',
+            wR: '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 45 45"><g fill="#fff" stroke="#000" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M9 39h27v-3H9v3zM12 36v-4h21v4H12zM11 14V9h4v2h5V9h5v2h5V9h4v5" stroke-linecap="butt"/><path d="M34 14l-3 3H14l-3-3"/><path d="M31 17v12.5H14V17" stroke-linecap="butt" stroke-linejoin="miter"/><path d="M31 29.5l1.5 2.5h-20l1.5-2.5"/><path d="M11 14h23" fill="none" stroke-linejoin="miter"/></g></svg>',
+            wQ: '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 45 45"><g fill="#fff" stroke="#000" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M8 12a2 2 0 1 1-4 0 2 2 0 0 1 4 0zM24.5 7.5a2 2 0 1 1-4 0 2 2 0 0 1 4 0zM41 12a2 2 0 1 1-4 0 2 2 0 0 1 4 0zM10.5 20a2 2 0 1 1-4 0 2 2 0 0 1 4 0zM38.5 20a2 2 0 1 1-4 0 2 2 0 0 1 4 0z"/><path d="M9 26c8.5-1.5 21-1.5 27 0l2-12-7 11V11l-5.5 13.5-3-15-3 15-5.5-13.5V25l-7-11zM11 30c3.5-1 18.5-1 23 0M11 34c3.5-1 18.5-1 23 0M11 37c3.5-1 18.5-1 23 0m-23 2h23" stroke-linecap="butt"/></g></svg>',
+            wK: '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 45 45"><g fill="#fff" stroke="#000" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M22.5 11.63V6M20 8h5" stroke-linejoin="miter"/><path d="M22.5 25s4.5-7.5 3-10.5c0 0-1-2.5-3-2.5s-3 2.5-3 2.5c-1.5 3 3 10.5 3 10.5" fill="#fff" stroke-linecap="butt" stroke-linejoin="miter"/><path d="M11.5 37c5.5 3.5 15.5 3.5 21 0v-7s9-4.5 6-10.5c-4-1-5 5.5-5 5.5l-6 6h-13l-6-6s-1-6.5-5-5.5c-3 6 6 10.5 6 10.5v7" fill="#fff" stroke-linecap="butt" stroke-linejoin="miter"/><path d="M11.5 30c5.5-3 15.5-3 21 0m-21 3.5c5.5-3 15.5-3 21 0m-21 3.5c5.5-3 15.5-3 21 0" stroke-linecap="butt"/></g></svg>',
+            bP: '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 45 45"><path d="M22 9c-2.21 0-4 1.79-4 4 0 .89.29 1.71.78 2.38C17.33 16.5 16 18.59 16 21c0 2.03.94 3.84 2.41 5.03-3 1.06-7.41 5.55-7.41 13.47h23c0-7.92-4.41-12.41-7.41-13.47 1.47-1.19 2.41-3 2.41-5.03 0-2.41-1.33-4.5-2.78-5.62.49-.67.78-1.49.78-2.38 0-2.21-1.79-4-4-4z" stroke="#000" stroke-width="1.5" fill="#000"/></svg>',
+            bN: '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 45 45"><g fill="none" fill-rule="evenodd" stroke="#000" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M 22,10 C 32.5,11 38.5,18 38,39 L 15,39 C 15,30 25,32.5 23,18" style="fill:#000000; stroke:#000000;" /><path d="M 24,18 C 24.38,20.91 18.45,25.37 16,27 C 13,29 13.18,31.34 11,31 C 9.958,30.06 12.41,27.96 11,28 C 10,28 11.19,29.23 10,30 C 9,30 5.997,31 6,26 C 6,24 12,14 12,14 C 12,14 13.89,12.1 14,10.5 C 13.27,9.506 13.5,8.5 13.5,7.5 C 14.5,6.5 16.5,10 16.5,10 L 18.5,10 C 18.5,10 19.28,8.008 21,7 C 22,7 22,10 22,10" style="fill:#000000; stroke:#000000;" /><path d="M 9.5 25.5 A 0.5 0.5 0 1 1 8.5,25.5 A 0.5 0.5 0 1 1 9.5 25.5 z" style="fill:#ffffff; stroke:#ffffff;" /><path d="M 15 15.5 A 0.5 1.5 0 1 1 14,15.5 A 0.5 1.5 0 1 1 15 15.5 z" transform="matrix(0.866,0.5,-0.5,0.866,9.693,-5.173)" style="fill:#ffffff; stroke:#ffffff;" /></g></svg>',
+            bB: '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 45 45"><path d="M23 9c-3.5 0-6.5 3-6.5 7.5 0 2.5 1.5 4.5 3.5 6 1 4 2 8 2 11h-3c0-4-3-8-3-8l-1 1c1 2 2 4 2 7.5V36h16v-2c0-3.3 1-5.5 2-7.5l-1-1c0 0-3 4-3 8h-3c0-3 1-7 2-11 2-1.5 3.5-3.5 3.5-6C30.5 12 27.5 9 24 9h-1z" stroke="#000" stroke-width="1.5" fill="#000"/><path d="M22.5 9c-.83 0-1.5-.67-1.5-1.5S21.67 6 22.5 6 24 6.67 24 7.5s-.67 1.5-1.5 1.5z" stroke="#fff" stroke-width="1.5" fill="#000"/></svg>',
+            bR: '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 45 45"><g fill="#000" stroke="#000" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M9 39h27v-3H9v3zM12 36v-4h21v4H12zM11 14V9h4v2h5V9h5v2h5V9h4v5" stroke-linecap="butt"/><path d="M34 14l-3 3H14l-3-3"/><path d="M31 17v12.5H14V17" stroke-linecap="butt" stroke-linejoin="miter"/><path d="M31 29.5l1.5 2.5h-20l1.5-2.5"/><path d="M11 14h23" fill="none" stroke-linejoin="miter"/></g></svg>',
+            bQ: '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 45 45"><g fill="#000" stroke="#000" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M8 12a2 2 0 1 1-4 0 2 2 0 0 1 4 0zM24.5 7.5a2 2 0 1 1-4 0 2 2 0 0 1 4 0zM41 12a2 2 0 1 1-4 0 2 2 0 0 1 4 0zM10.5 20a2 2 0 1 1-4 0 2 2 0 0 1 4 0zM38.5 20a2 2 0 1 1-4 0 2 2 0 0 1 4 0z"/><path d="M9 26c8.5-1.5 21-1.5 27 0l2-12-7 11V11l-5.5 13.5-3-15-3 15-5.5-13.5V25l-7-11zM11 30c3.5-1 18.5-1 23 0M11 34c3.5-1 18.5-1 23 0M11 37c3.5-1 18.5-1 23 0m-23 2h23" stroke-linecap="butt"/></g></svg>',
+            bK: '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 45 45"><g fill="#000" stroke="#000" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M22.5 11.63V6M20 8h5" stroke-linejoin="miter"/><path d="M22.5 25s4.5-7.5 3-10.5c0 0-1-2.5-3-2.5s-3 2.5-3 2.5c-1.5 3 3 10.5 3 10.5" fill="#000" stroke-linecap="butt" stroke-linejoin="miter"/><path d="M11.5 37c5.5 3.5 15.5 3.5 21 0v-7s9-4.5 6-10.5c-4-1-5 5.5-5 5.5l-6 6h-13l-6-6s-1-6.5-5-5.5c-3 6 6 10.5 6 10.5v7" fill="#000" stroke-linecap="butt" stroke-linejoin="miter"/><path d="M11.5 30c5.5-3 15.5-3 21 0m-21 3.5c5.5-3 15.5-3 21 0m-21 3.5c5.5-3 15.5-3 21 0" stroke-linecap="butt"/></g></svg>'
+        };
+    </script>
+
+    <!-- App Logic -->
+    <script>
+        class EngineManager {
+            constructor(statusCallback, onReadyCallback, onMoveCallback) {
+                this.statusCallback = statusCallback;
+                this.onReadyCallback = onReadyCallback;
+                this.onMoveCallback = onMoveCallback;
+
+                this.engine = null;
+                this.isWorker = false;
+                this.isReady = false;
+
+                this.init();
+            }
+
+            init() {
+                this.statusCallback("Initializing Engine...");
+
+                // Try to load stockfish from CDN via Worker if possible, else script tag
+                // Workers need same-origin usually, so we create a Blob from the CDN response to trick it?
+                // Simpler: Just try to load script tag for Main Thread directly if we are in this fail-safe mode.
+                // But let's try Worker first with a Blob trick if we can fetch it.
+
+                fetch(STOCKFISH_CDN)
+                    .then(response => {
+                        if (!response.ok) throw new Error("Network response was not ok");
+                        return response.blob();
+                    })
+                    .then(blob => {
+                        const objectURL = URL.createObjectURL(blob);
+                        this.startWorker(objectURL);
+                    })
+                    .catch(err => {
+                        console.warn("Could not fetch Stockfish from CDN for Worker:", err);
+                        this.loadScriptAndUseMainThread();
+                    });
+            }
+
+            startWorker(workerUrl) {
+                try {
+                    this.engine = new Worker(workerUrl);
+                    this.isWorker = true;
+
+                    this.engine.onmessage = (event) => this.handleMessage(event.data);
+                    this.engine.onerror = (e) => {
+                        console.warn("Worker error:", e);
+                        this.switchToMainThread();
+                    };
+
+                    this.engine.postMessage('uci');
+
+                    // Timeout check
+                    setTimeout(() => {
+                        if (!this.isReady && this.isWorker) {
+                            console.warn("Worker timed out.");
+                            this.switchToMainThread();
+                        }
+                    }, 5000);
+
+                } catch (e) {
+                    console.warn("Worker creation failed:", e);
+                    this.switchToMainThread();
+                }
+            }
+
+            switchToMainThread() {
+                if (this.isWorker && this.engine) {
+                    this.engine.terminate();
+                    this.engine = null;
+                }
+                this.isWorker = false;
+                this.loadScriptAndUseMainThread();
+            }
+
+            loadScriptAndUseMainThread() {
+                this.statusCallback("Loading Main Thread Engine...");
+
+                // Check if already loaded
+                if (typeof Module !== 'undefined' && Module && typeof Stockfish === 'function') {
+                    this.initMainThread();
+                    return;
+                }
+
+                // Dynamically load script from CDN
+                const script = document.createElement('script');
+                script.src = STOCKFISH_CDN;
+                script.onload = () => {
+                    this.waitForStockfishModule();
+                };
+                script.onerror = () => {
+                    this.statusCallback("Engine Failed to Load");
+                    alert("Could not load Stockfish engine from CDN.");
+                };
+                document.body.appendChild(script);
+            }
+
+            waitForStockfishModule() {
+                let attempts = 0;
+                const check = setInterval(() => {
+                    attempts++;
+                    if (typeof Stockfish === 'function') { // stockfish.js 10 defines Stockfish()
+                        clearInterval(check);
+                        this.initMainThread();
+                    } else if (typeof Module !== 'undefined' && Module) {
+                        clearInterval(check);
+                        this.initMainThread();
+                    } else if (attempts > 40) {
+                        clearInterval(check);
+                        this.statusCallback("Engine Load Failed");
+                    }
+                }, 500);
+            }
+
+            initMainThread() {
+                console.log("Initializing Main Thread Stockfish...");
+                const self = this;
+
+                // Stockfish 10 from CDN might work differently. 
+                // usually it returns a function that initializes the module.
+                // var engine = Stockfish();
+
+                if (typeof Stockfish === 'function') {
+                    this.engine = Stockfish();
+                    // The Stockfish() function from cdnjs returns a worker-like object with postMessage/onmessage!
+                    // It emulates a worker on main thread. Perfect.
+
+                    this.engine.onmessage = (event) => {
+                        // event.data might be the string directly or {data: string}
+                        const line = typeof event === 'string' ? event : event.data;
+                        self.handleMessage(line);
+                    };
+
+                    this.engine.postMessage('uci');
+
+                } else {
+                    // Fallback for older emscripten style if Stockfish() isn't available but Module is
+                    // This corresponds to my previous fix attempt logic
+                    if (typeof Module !== 'undefined') {
+                        Module.print = (text) => self.handleMessage(text);
+                        Module.printErr = (text) => console.error("SF Err:", text);
+                        this.sendCommand('uci');
+                    }
+                }
+            }
+
+            sendCommand(cmd) {
+                if (!this.engine && !this.isWorker && typeof Module === 'undefined') return;
+
+                if (this.engine && typeof this.engine.postMessage === 'function') {
+                    this.engine.postMessage(cmd);
+                } else {
+                    // Raw Module fallback
+                    if (typeof window.onmessage === 'function') {
+                        window.onmessage({ data: cmd });
+                    }
+                }
+            }
+
+            handleMessage(line) {
+                if (line === 'uciok') {
+                    if (!this.isReady) {
+                        this.isReady = true;
+                        this.statusCallback("Stockfish Ready");
+                        this.onReadyCallback();
+                    }
+                }
+
+                if (line && line.startsWith('bestmove')) {
+                    const move = line.split(' ')[1];
+                    this.onMoveCallback(move);
+                }
+            }
+        }
+
+        class ChessApp {
+            constructor() {
+                this.game = new Chess();
+                this.boardEl = document.getElementById('chessboard');
+                this.statusEl = document.getElementById('game-status');
+                this.engineStatusEl = document.getElementById('engine-status');
+                this.levelSelect = document.getElementById('difficulty');
+
+                this.playerColor = 'w';
+                this.isThinking = false;
+
+                this.selectedSquare = null;
+                this.isDragging = false;
+                this.dragStartSquare = null;
+                this.draggedVisual = null;
+
+                this.engineMgr = new EngineManager(
+                    (status) => { this.engineStatusEl.innerText = status; },
+                    () => { console.log("Engine Ready!"); },
+                    (bestMove) => { this.handleAiMove(bestMove); }
+                );
+
+                this.init();
+            }
+
+            init() {
+                this.renderBoard();
+                this.updateStatus();
+
+                document.getElementById('btn-new-game').addEventListener('click', () => this.newGame());
+                document.getElementById('btn-undo').addEventListener('click', () => this.undoMove());
+
+                window.addEventListener('resize', () => { });
+            }
+
+            newGame() {
+                if (this.isThinking) return;
+                this.game.reset();
+                this.selectedSquare = null;
+                this.renderBoard();
+                this.updateStatus();
+                this.engineMgr.sendCommand('stop');
+                this.engineMgr.sendCommand('ucinewgame');
+            }
+
+            undoMove() {
+                if (this.isThinking) return;
+                this.game.undo();
+                this.game.undo();
+                this.renderBoard();
+                this.updateStatus();
+            }
+
+            renderBoard() {
+                this.boardEl.innerHTML = '';
+                const board = this.game.board();
+
+                for (let row = 0; row < 8; row++) {
+                    for (let col = 0; col < 8; col++) {
+                        const squareDiv = document.createElement('div');
+                        const isLight = (row + col) % 2 === 0;
+                        squareDiv.className = `square ${isLight ? 'light' : 'dark'}`;
+
+                        const squareId = String.fromCharCode(97 + col) + (8 - row);
+                        squareDiv.dataset.square = squareId;
+
+                        if (this.selectedSquare === squareId) squareDiv.classList.add('highlight');
+
+                        const piece = board[row][col];
+                        if (piece) {
+                            const pieceDiv = document.createElement('div');
+                            pieceDiv.className = 'piece';
+                            pieceDiv.innerHTML = PIECES[piece.color + piece.type.toUpperCase()];
+                            pieceDiv.setAttribute('draggable', 'false');
+
+                            if (this.isDragging && this.dragStartSquare === squareId) {
+                                pieceDiv.style.opacity = '0.3';
+                            }
+                            squareDiv.appendChild(pieceDiv);
+                        }
+
+                        squareDiv.addEventListener('pointerdown', (e) => this.handlePointerDown(e, squareId));
+
+                        if (this.selectedSquare && !this.isDragging) {
+                            const moves = this.game.moves({ square: this.selectedSquare, verbose: true });
+                            if (moves.find(m => m.to === squareId)) {
+                                const hint = document.createElement('div');
+                                hint.className = 'hint-dot';
+                                squareDiv.appendChild(hint);
+                            }
+                        }
+
+                        this.boardEl.appendChild(squareDiv);
+                    }
+                }
+            }
+
+            handlePointerDown(e, square) {
+                if (this.isThinking) return;
+
+                if (this.selectedSquare && !this.isDragging) {
+                    const move = this.tryMove(this.selectedSquare, square);
+                    if (move) {
+                        this.selectedSquare = null;
+                        return;
+                    }
+                }
+
+                const piece = this.game.get(square);
+                if (piece && piece.color === this.playerColor) {
+                    e.preventDefault();
+                    this.isDragging = true;
+                    this.dragStartSquare = square;
+                    this.selectedSquare = square;
+
+                    const squareEl = this.boardEl.querySelector(`[data-square="${square}"]`);
+                    const pieceEl = squareEl.querySelector('.piece');
+                    if (pieceEl) {
+                        const rect = pieceEl.getBoundingClientRect();
+                        this.draggedVisual = pieceEl.cloneNode(true);
+                        Object.assign(this.draggedVisual.style, {
+                            position: 'fixed', zIndex: 1000, pointerEvents: 'none',
+                            width: rect.width + 'px', height: rect.height + 'px',
+                            left: (e.clientX - rect.width / 2) + 'px', top: (e.clientY - rect.height / 2) + 'px'
+                        });
+                        this.draggedVisual.classList.add('dragging');
+                        document.body.appendChild(this.draggedVisual);
+
+                        this.dragMoveHandler = (ev) => this.handlePointerMove(ev);
+                        this.dragEndHandler = (ev) => this.handlePointerUp(ev);
+                        this.dragCancelHandler = (ev) => this.cancelDrag(ev);
+
+                        document.addEventListener('pointermove', this.dragMoveHandler);
+                        document.addEventListener('pointerup', this.dragEndHandler);
+                        document.addEventListener('pointercancel', this.dragCancelHandler);
+                    }
+                    this.renderBoard();
+                } else {
+                    this.selectedSquare = null;
+                    this.renderBoard();
+                }
+            }
+
+            handlePointerMove(e) {
+                if (!this.draggedVisual) return;
+                e.preventDefault();
+                const width = parseFloat(this.draggedVisual.style.width);
+                const height = parseFloat(this.draggedVisual.style.height);
+                this.draggedVisual.style.left = (e.clientX - width / 2) + 'px';
+                this.draggedVisual.style.top = (e.clientY - height / 2) + 'px';
+            }
+
+            handlePointerUp(e) {
+                this.isDragging = false;
+                if (this.draggedVisual) {
+                    this.draggedVisual.remove();
+                    this.draggedVisual = null;
+                }
+                document.removeEventListener('pointermove', this.dragMoveHandler);
+                document.removeEventListener('pointerup', this.dragEndHandler);
+                document.removeEventListener('pointercancel', this.dragCancelHandler);
+
+                const elements = document.elementsFromPoint(e.clientX, e.clientY);
+                const squareEl = elements.find(el => el.classList.contains('square'));
+                if (squareEl) {
+                    const target = squareEl.dataset.square;
+                    if (target !== this.dragStartSquare) {
+                        this.tryMove(this.dragStartSquare, target);
+                    }
+                }
+                this.renderBoard();
+            }
+
+            cancelDrag() {
+                this.isDragging = false;
+                if (this.draggedVisual) {
+                    this.draggedVisual.remove();
+                    this.draggedVisual = null;
+                }
+                document.removeEventListener('pointermove', this.dragMoveHandler);
+                document.removeEventListener('pointerup', this.dragEndHandler);
+                document.removeEventListener('pointercancel', this.dragCancelHandler);
+                this.renderBoard();
+            }
+
+            tryMove(from, to) {
+                const move = this.game.move({ from, to, promotion: 'q' });
+                if (move) {
+                    this.renderBoard();
+                    this.updateStatus();
+                    this.triggerAi();
+                    return true;
+                }
+                return false;
+            }
+
+            triggerAi() {
+                if (this.game.game_over()) return;
+
+                this.isThinking = true;
+                this.statusEl.innerText = "AI is thinking...";
+
+                const depth = parseInt(this.levelSelect.value) || 10;
+                const fen = this.game.fen();
+
+                /*
+                    For Stockfish 10, sendCommand might need handling.
+                    If using CDN Stockfish() object, it handles postMessage.
+                */
+                if (this.engineMgr.isReady) {
+                    // Using engineMgr sendCommand wrapper
+                    this.engineMgr.sendCommand(`position fen ${fen}`);
+                    // movetime ensures it returns even on main thread
+                    const timeLimit = 800;
+                    this.engineMgr.sendCommand(`go depth ${depth} movetime ${timeLimit}`);
+                } else {
+                    console.warn("Engine not ready, using pure random fallback");
+                    setTimeout(() => this.makeRandomMove(), 1000);
+                }
+            }
+
+            handleAiMove(bestMove) {
+                if (!this.isThinking) return;
+
+                if (bestMove && bestMove !== '(none)') {
+                    const from = bestMove.substring(0, 2);
+                    const to = bestMove.substring(2, 4);
+                    const promotion = bestMove.substring(4, 5);
+
+                    this.game.move({ from, to, promotion });
+                    this.isThinking = false;
+                    this.renderBoard();
+                    this.updateStatus();
+                } else {
+                    this.isThinking = false;
+                    this.updateStatus();
+                }
+            }
+
+            makeRandomMove() {
+                const moves = this.game.moves();
+                if (moves.length > 0) {
+                    const mk = moves[Math.floor(Math.random() * moves.length)];
+                    this.game.move(mk);
+                }
+                this.isThinking = false;
+                this.renderBoard();
+                this.updateStatus();
+            }
+
+            updateStatus() {
+                if (this.game.in_checkmate()) {
+                    this.statusEl.innerText = this.game.turn() === 'w' ? "Black Wins!" : "White Wins!";
+                } else if (this.game.in_draw()) {
+                    this.statusEl.innerText = "Draw!";
+                } else {
+                    this.statusEl.innerText = this.game.turn() === 'w' ? "Your Turn" : "AI Turn";
+                }
+            }
+        }
+
+        document.addEventListener('DOMContentLoaded', () => {
+            window.app = new ChessApp();
+        });
+    </script>
+</body>
+
+</html>
